@@ -47,7 +47,6 @@
  * <pre><code>
  * var socket = new easyXDM.Socket({
  * &nbsp; remote: "http:&#47;&#47;remotedomain/page.html",
- * &nbsp; remoteHelper: "http:&#47;&#47;remotedomain/name.html",
  * &nbsp; onReady: function(){
  * &nbsp; &nbsp; &#47;&#47; you need to wait for the onReady callback before using the socket
  * &nbsp; &nbsp; socket.postMessage("foo-message");
@@ -57,14 +56,11 @@
  * &nbsp; }
  * });
  * </code></pre>
- * If you are unable to upload the <code>name.html</code> file to the consumers domain then remove the <code>remoteHelper</code> property
- * and easyXDM will fall back to using the HashTransport instead of the NameTransport when not able to use any of the primary transports.
  * @namespace easyXDM
  * @constructor
  * @cfg {String/Window} local The url to the local name.html document, a local static file, or a reference to the local window.
  * @cfg {Boolean} lazy (Consumer only) Set this to true if you want easyXDM to defer creating the transport until really needed. 
  * @cfg {String} remote (Consumer only) The url to the providers document.
- * @cfg {String} remoteHelper (Consumer only) The url to the remote name.html file. This is to support NameTransport as a fallback. Optional.
  * @cfg {Number} delay The number of milliseconds easyXDM should try to get a reference to the local window.  Optional, defaults to 2000.
  * @cfg {Number} interval The interval used when polling for messages. Optional, defaults to 300.
  * @cfg {String} channel (Consumer only) The name of the channel to use. Can be used to set consistent iframe names. Must be unique. Optional.

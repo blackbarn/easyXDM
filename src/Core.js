@@ -1,5 +1,5 @@
 /*jslint evil: true, browser: true, immed: true, passfail: true, undef: true, newcap: true*/
-/*global JSON, XMLHttpRequest, window, escape, unescape, ActiveXObject */
+/*global JSON, XMLHttpRequest, window, escape, unescape */
 //
 // easyXDM
 // http://easyxdm.net/
@@ -36,8 +36,6 @@ var _easyXDM = window.easyXDM; // map over global easyXDM in case of overwrite
 var IFRAME_PREFIX = "easyXDM_";
 var HAS_NAME_PROPERTY_BUG;
 var useHash = false; // whether to use the hash over the query
-var flashVersion; // will be set if using flash
-var HAS_FLASH_THROTTLED_BUG;
 // #ifdef debug
 var _trace = emptyFn;
 // #endif
@@ -63,33 +61,6 @@ function isArray(o){
 }
 
 // end
-function hasFlash(){
-    var name = "Shockwave Flash", mimeType = "application/x-shockwave-flash";
-    
-    if (!undef(navigator.plugins) && typeof navigator.plugins[name] == "object") {
-        // adapted from the swfobject code
-        var description = navigator.plugins[name].description;
-        if (description && !undef(navigator.mimeTypes) && navigator.mimeTypes[mimeType] && navigator.mimeTypes[mimeType].enabledPlugin) {
-            flashVersion = description.match(/\d+/g);
-        }
-    }
-    if (!flashVersion) {
-        var flash;
-        try {
-            flash = new ActiveXObject("ShockwaveFlash.ShockwaveFlash");
-            flashVersion = Array.prototype.slice.call(flash.GetVariable("$version").match(/(\d+),(\d+),(\d+),(\d+)/), 1);
-            flash = null;
-        } 
-        catch (notSupportedException) {
-        }
-    }
-    if (!flashVersion) {
-        return false;
-    }
-    var major = parseInt(flashVersion[0], 10), minor = parseInt(flashVersion[1], 10);
-    HAS_FLASH_THROTTLED_BUG = major > 9 && minor > 0;
-    return true;
-}
 
 /*
  * Cross Browser implementation for adding and removing event listeners.
@@ -653,31 +624,9 @@ function prepareTransportStack(config){
                  */
                 protocol = "1";
             }
-            else if (config.swf && isHostMethod(window, "ActiveXObject") && hasFlash()) {
-                /*
-                 * The Flash transport superseedes the NixTransport as the NixTransport has been blocked by MS
-                 */
-                protocol = "6";
-            }
-            else if (navigator.product === "Gecko" && "frameElement" in window && navigator.userAgent.indexOf('WebKit') == -1) {
-                /*
-                 * This is supported in Gecko (Firefox 1+)
-                 */
-                protocol = "5";
-            }
-            else if (config.remoteHelper) {
-                /*
-                 * This is supported in all browsers that retains the value of window.name when
-                 * navigating from one domain to another, and where parent.frames[foo] can be used
-                 * to get access to a frame from the same domain
-                 */
-                protocol = "2";
-            }
             else {
                 /*
-                 * This is supported in all browsers where [window].location is writable for all
-                 * The resize event will be used if resize is supported and the iframe is not put
-                 * into a container, else polling will be used.
+                 * Not supported
                  */
                 protocol = "0";
             }
@@ -693,100 +642,14 @@ function prepareTransportStack(config){
     }
     config.protocol = protocol; // for conditional branching
     switch (protocol) {
-        case "0":// 0 = HashTransport
-            apply(config, {
-                interval: 100,
-                delay: 2000,
-                useResize: true,
-                useParent: false,
-                usePolling: false
-            }, true);
-            if (config.isHost) {
-                if (!config.local) {
-                    // #ifdef debug
-                    _trace("looking for image to use as local");
-                    // #endif
-                    // If no local is set then we need to find an image hosted on the current domain
-                    var domain = location.protocol + "//" + location.host, images = document.body.getElementsByTagName("img"), image;
-                    var i = images.length;
-                    while (i--) {
-                        image = images[i];
-                        if (image.src.substring(0, domain.length) === domain) {
-                            config.local = image.src;
-                            break;
-                        }
-                    }
-                    if (!config.local) {
-                        // #ifdef debug
-                        _trace("no image found, defaulting to using the window");
-                        // #endif
-                        // If no local was set, and we are unable to find a suitable file, then we resort to using the current window 
-                        config.local = window;
-                    }
-                }
-                
-                var parameters = {
-                    xdm_c: config.channel,
-                    xdm_p: 0
-                };
-                
-                if (config.local === window) {
-                    // We are using the current window to listen to
-                    config.usePolling = true;
-                    config.useParent = true;
-                    config.local = location.protocol + "//" + location.host + location.pathname + location.search;
-                    parameters.xdm_e = config.local;
-                    parameters.xdm_pa = 1; // use parent
-                }
-                else {
-                    parameters.xdm_e = resolveUrl(config.local);
-                }
-                
-                if (config.container) {
-                    config.useResize = false;
-                    parameters.xdm_po = 1; // use polling
-                }
-                config.remote = appendQueryParameters(config.remote, parameters);
-            }
-            else {
-                apply(config, {
-                    channel: query.xdm_c,
-                    remote: query.xdm_e,
-                    useParent: !undef(query.xdm_pa),
-                    usePolling: !undef(query.xdm_po),
-                    useResize: config.useParent ? false : config.useResize
-                });
-            }
-            stackEls = [new easyXDM.stack.HashTransport(config), new easyXDM.stack.ReliableBehavior({}), new easyXDM.stack.QueueBehavior({
-                encode: true,
-                maxLength: 4000 - config.remote.length
-            }), new easyXDM.stack.VerifyBehavior({
-                initiate: config.isHost
-            })];
+        case "0":
+            throw new Error("Not Supported Browser");
             break;
         case "1":
             stackEls = [new easyXDM.stack.PostMessageTransport(config)];
             break;
-        case "2":
-            config.remoteHelper = resolveUrl(config.remoteHelper);
-            stackEls = [new easyXDM.stack.NameTransport(config), new easyXDM.stack.QueueBehavior(), new easyXDM.stack.VerifyBehavior({
-                initiate: config.isHost
-            })];
-            break;
-        case "3":
-            stackEls = [new easyXDM.stack.NixTransport(config)];
-            break;
         case "4":
             stackEls = [new easyXDM.stack.SameOriginTransport(config)];
-            break;
-        case "5":
-            stackEls = [new easyXDM.stack.FrameElementTransport(config)];
-            break;
-        case "6":
-            if (!flashVersion) {
-                hasFlash();
-            }
-            stackEls = [new easyXDM.stack.FlashTransport(config)];
             break;
     }
     // this behavior is responsible for buffering outgoing messages, and for performing lazy initialization
@@ -899,6 +762,12 @@ apply(easyXDM, {
      */
     noConflict: noConflict
 });
+
+if (typeof define === 'function' && define.amd) {
+    define('xdm', [], function() {
+        return easyXDM;
+    });
+}
 
 // #ifdef debug
 // Expose helper functions so we can test them
